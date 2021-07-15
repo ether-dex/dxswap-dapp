@@ -1,23 +1,51 @@
-import { ChainId, Currency, Token } from 'dxswap-sdk'
-import React, { useMemo } from 'react'
+import { ChainId, Currency, Token, DXD } from 'dxswap-sdk'
+import React, { ReactNode, useMemo } from 'react'
+import Skeleton from 'react-loading-skeleton'
 import styled from 'styled-components'
 
 import EthereumLogo from '../../assets/images/ethereum-logo.png'
 import PoaLogo from '../../assets/images/poa-logo.png'
 import XDAILogo from '../../assets/images/xdai-logo.png'
+import DXDLogo from '../../assets/svg/dxd.svg'
 import { useActiveWeb3React } from '../../hooks'
 import useHttpLocations from '../../hooks/useHttpLocations'
-import { WrappedTokenInfo } from '../../state/lists/hooks'
+import { WrappedTokenInfo } from '../../state/lists/wrapped-token-info'
 import Logo from '../Logo'
 
 const getTokenLogoURL = (address: string) =>
   `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/${address}/logo.png`
 
 const StyledLogo = styled(Logo)<{ size: string }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   width: ${({ size }) => size};
   height: ${({ size }) => size};
   border-radius: ${({ size }) => size};
-  box-shadow: 0px 6px 10px rgba(0, 0, 0, 0.075);
+`
+
+const Wrapper = styled.div<{ size: string; marginRight: number; marginLeft: number; loading?: boolean }>`
+  position: relative;
+  width: ${({ size }) => size};
+  height: ${({ size }) => size};
+  margin-right: ${({ marginRight }) => marginRight}px;
+  margin-left: ${({ marginLeft }) => marginLeft}px;
+  border-radius: ${({ size }) => size};
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    ${({size}) => `width: calc(${size} - 1px)`};
+    ${({size}) => `height: calc(${size} - 1px)`};
+    background-color: ${props => (props.loading ? 'transparent' : props.theme.white)};
+    border-radius: 50%;
+    z-index: -1;
+  }
 `
 
 const NATIVE_CURRENCY_LOGO: { [chainId in ChainId]: string } = {
@@ -32,12 +60,18 @@ export default function CurrencyLogo({
   currency,
   size = '24px',
   style,
-  className
+  className,
+  loading,
+  marginRight = 0,
+  marginLeft = 0
 }: {
   currency?: Currency
   size?: string
   style?: React.CSSProperties
   className?: string
+  loading?: boolean
+  marginRight?: number
+  marginLeft?: number
 }) {
   const { chainId } = useActiveWeb3React()
   const nativeCurrencyLogo = NATIVE_CURRENCY_LOGO[(chainId as ChainId) || ChainId.MAINNET]
@@ -47,18 +81,40 @@ export default function CurrencyLogo({
     if (currency && Currency.isNative(currency) && !!nativeCurrencyLogo) return [nativeCurrencyLogo]
     if (currency instanceof Token) {
       if (Token.isNativeWrapper(currency)) return [nativeCurrencyLogo]
+      if (chainId && DXD[chainId] && DXD[chainId].address === currency.address) return [DXDLogo]
       return [getTokenLogoURL(currency.address), ...uriLocations]
     }
     return []
-  }, [currency, nativeCurrencyLogo, uriLocations])
+  }, [chainId, currency, nativeCurrencyLogo, uriLocations])
 
+  if (loading)
+    return (
+      <Skeleton
+        wrapper={({ children }: { children: ReactNode }) => (
+          <Wrapper
+            loading={loading}
+            size={size}
+            marginRight={marginRight}
+            marginLeft={marginLeft}
+            className={className}
+          >
+            {children}
+          </Wrapper>
+        )}
+        circle
+        width={size}
+        height={size}
+      />
+    )
   return (
-    <StyledLogo
-      className={className}
-      size={size}
-      srcs={srcs}
-      alt={`${currency?.symbol ?? 'token'} logo`}
-      style={style}
-    />
+    <Wrapper size={size} marginRight={marginRight} marginLeft={marginLeft} className={className}>
+      <StyledLogo
+        size={size}
+        defaultText={currency?.symbol || '?'}
+        srcs={srcs}
+        alt={`${currency?.symbol ?? 'token'} logo`}
+        style={style}
+      />
+    </Wrapper>
   )
 }

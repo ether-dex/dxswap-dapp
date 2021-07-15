@@ -4,8 +4,10 @@ import { AddressZero } from '@ethersproject/constants'
 import { JsonRpcSigner, Web3Provider } from '@ethersproject/providers'
 import { BigNumber } from '@ethersproject/bignumber'
 import { abi as IDXswapRouterABI } from 'dxswap-periphery/build/IDXswapRouter.json'
-import { ChainId, JSBI, Percent, Token, CurrencyAmount, Currency, RoutablePlatform } from 'dxswap-sdk'
+import { ChainId, JSBI, Percent, Token, CurrencyAmount, Currency, Pair, RoutablePlatform } from 'dxswap-sdk'
 import { TokenAddressMap } from '../state/lists/hooks'
+import Decimal from 'decimal.js-light'
+import { commify } from 'ethers/lib/utils'
 
 // returns the checksummed address if the address is valid, otherwise returns false
 export function isAddress(value: any): string | false {
@@ -31,7 +33,7 @@ const getExplorerPrefix = (chainId: ChainId) => {
     case ChainId.SOKOL:
       return 'https://blockscout.com/poa/sokol'
     case ChainId.XDAI:
-      return 'https://blockscout.com/poa/xdai'
+      return 'https://blockscout.com/xdai/mainnet'
     default:
       return `https://${ETHERSCAN_PREFIXES[chainId] || ETHERSCAN_PREFIXES[1]}etherscan.io`
   }
@@ -43,6 +45,12 @@ export function getExplorerLink(
   type: 'transaction' | 'token' | 'address' | 'block'
 ): string {
   const prefix = getExplorerPrefix(chainId)
+
+  // exception. blockscout doesn't have a token-specific address
+  if (chainId === ChainId.XDAI && type === 'token') {
+    return `${prefix}/address/${data}`
+  }
+
   switch (type) {
     case 'transaction': {
       return `${prefix}/tx/${data}`
@@ -130,4 +138,35 @@ export function escapeRegExp(string: string): string {
 export function isTokenOnList(defaultTokens: TokenAddressMap, currency: Currency): boolean {
   if (Currency.isNative(currency)) return true
   return Boolean(currency instanceof Token && defaultTokens[currency.chainId]?.[currency.address])
+}
+
+export function isPairOnList(pairs: Pair[], pair?: Pair): boolean {
+  if (!pair) return false
+  return !!pairs.find(loopedPair => loopedPair.equals(pair))
+}
+
+export const formatCurrencyAmount = (amount: CurrencyAmount, significantDecimalPlaces = 2): string => {
+  const decimalAmount = new Decimal(amount.toExact())
+  if (decimalAmount.lessThan('0.00000001')) {
+    return '0.00'
+  }
+  const decimalPlaces = decimalAmount.decimalPlaces()
+  if (decimalPlaces === 0) {
+    return commify(decimalAmount.toString())
+  }
+  const [integers, decimals] = decimalAmount.toFixed(decimalPlaces).split('.')
+  let adjustedDecimals = ''
+  let significantDecimalPlacesAdded = 0
+  for (let i = 0; i < decimals.length; i++) {
+    const char = decimals.charAt(i)
+    if (significantDecimalPlacesAdded === 1 && char === '0') {
+      // handle cases like 0.0010001, stopping at the first 1
+      break
+    }
+    adjustedDecimals += char
+    if (char !== '0' && ++significantDecimalPlacesAdded === significantDecimalPlaces) {
+      break
+    }
+  }
+  return `${commify(integers)}.${adjustedDecimals}`
 }

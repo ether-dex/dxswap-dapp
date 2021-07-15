@@ -1,17 +1,13 @@
-import { ChainId } from 'dxswap-sdk'
 import React, { useCallback } from 'react'
 import { Box, Flex, Text } from 'rebass'
 import { NavLink, withRouter } from 'react-router-dom'
 
 import styled from 'styled-components'
 
-import Logo from '../../assets/svg/swapr.svg'
-import LogoDark from '../../assets/svg/swapr_white.svg'
 import { useActiveWeb3React } from '../../hooks'
 import { useDarkModeManager } from '../../state/user/hooks'
 import { useNativeCurrencyBalances } from '../../state/wallet/hooks'
 
-import { YellowCard } from '../Card'
 import Settings from '../Settings'
 
 import Row, { RowFixed } from '../Row'
@@ -22,6 +18,8 @@ import { ExternalLink, TYPE } from '../../theme'
 import MobileOptions from './MobileOptions'
 import Badge from '../Badge'
 import { useNativeCurrency } from '../../hooks/useNativeCurrency'
+import SwaprVersionLogo from '../SwaprVersionLogo'
+import { isMobile } from 'react-device-detect'
 
 const HeaderFrame = styled.div`
   display: grid;
@@ -74,7 +72,6 @@ const HeaderControls = styled.div`
 const HeaderElement = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
 
   ${({ theme }) => theme.mediaWidth.upToMedium`
    flex-direction: row-reverse;
@@ -87,11 +84,6 @@ const MoreLinksIcon = styled(HeaderElement)`
   ${({ theme }) => theme.mediaWidth.upToExtraSmall`
     display: flex;
   `};
-`
-
-const HeaderElementWrap = styled.div`
-  display: flex;
-  align-items: center;
 `
 
 const HeaderRow = styled(RowFixed)<{ isDark: boolean }>`
@@ -115,10 +107,10 @@ const AccountElement = styled.div<{ active: boolean }>`
   display: flex;
   flex-direction: row;
   align-items: center;
-  background-color: ${({ theme, active }) => (active ? transparentize(0.45, theme.bg1) : 'transparent')};
+  background-color: ${({ theme }) => theme.dark1};
   border: solid 2px transparent;
   box-sizing: border-box;
-  color: ${({ theme }) => theme.text4};
+  color: ${({ theme }) => theme.purple2};
   border-radius: 8px;
   white-space: nowrap;
   width: 100%;
@@ -129,33 +121,13 @@ const AccountElement = styled.div<{ active: boolean }>`
   }
 `
 
-const NetworkCard = styled(YellowCard)`
-  border-radius: 8px;
-  padding: 9px 14px;
-  font-weight: 700;
-  font-size: 12px;
-  line-height: 15px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  ${({ theme }) => theme.mediaWidth.upToExtraSmall`
-    margin: 0;
-    margin-right: 0.5rem;
-    width: initial;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 1;
-  `};
-  ${({ theme }) => theme.mediaWidth.upToExtraSmall`
-    display: none;
-  `};
-`
-
 const Title = styled.a`
   display: flex;
   align-items: center;
   pointer-events: auto;
   justify-self: flex-start;
-  margin-right: 35px;
+  margin-right: 12px;
+  margin-left: 8px;
   ${({ theme }) => theme.mediaWidth.upToSmall`
     justify-self: center;
   `};
@@ -164,13 +136,6 @@ const Title = styled.a`
   `};
   :hover {
     cursor: pointer;
-  }
-`
-
-const DXswapIcon = styled.div`
-  img {
-    margin-left: 5px;
-    margin-bottom: -5px;
   }
 `
 
@@ -196,6 +161,10 @@ export const StyledNavLink = styled(NavLink).attrs({
     font-weight: 600;
     color: ${({ theme }) => theme.white};
   }
+
+  ${({ theme }) => theme.mediaWidth.upToExtraSmall`
+    display: none;
+  `};
 `
 
 const StyledNavLinkWithBadge = styled.a`
@@ -236,14 +205,6 @@ const StyledExternalLink = styled(ExternalLink).attrs({
   `};
 `
 
-const NETWORK_LABELS: { [chainId in ChainId]?: string } = {
-  [ChainId.MAINNET]: 'Mainnet',
-  [ChainId.RINKEBY]: 'Rinkeby',
-  [ChainId.ARBITRUM_TESTNET_V3]: 'Arbitrum',
-  [ChainId.SOKOL]: 'Sokol',
-  [ChainId.XDAI]: 'xDAI'
-}
-
 function Header({ history }: { history: any }) {
   const { account, chainId } = useActiveWeb3React()
   const { t } = useTranslation()
@@ -261,9 +222,7 @@ function Header({ history }: { history: any }) {
     <HeaderFrame>
       <HeaderRow isDark={isDark}>
         <Title href=".">
-          <DXswapIcon>
-            <img src={isDark ? LogoDark : Logo} alt="logo" />
-          </DXswapIcon>
+          <SwaprVersionLogo />
         </Title>
         <HeaderLinks>
           <StyledNavLink id={`swap-nav-link`} to={'/swap'} isActive={() => history.location.pathname.includes('/swap')}>
@@ -271,9 +230,9 @@ function Header({ history }: { history: any }) {
           </StyledNavLink>
           <StyledNavLink
             id={`pool-nav-link`}
-            to={'/pool'}
+            to={'/pools'}
             isActive={() =>
-              history.location.pathname.includes('/pool') ||
+              history.location.pathname.includes('/pools') ||
               history.location.pathname.includes('/add') ||
               history.location.pathname.includes('/remove') ||
               history.location.pathname.includes('/create')
@@ -289,12 +248,13 @@ function Header({ history }: { history: any }) {
               </Box>
             </AbsoluteComingSoonBadgeFlex>
           </StyledNavLinkWithBadge>
-          <StyledExternalLink id={`stake-nav-link`} href={'https://dxstats.eth.link/'}>
+          <StyledExternalLink id={`stake-nav-link`} href={`https://dxstats.eth.link/#/?chainId=${chainId}`}>
             Charts{' '}
             <Text ml="4px" fontSize="11px">
               ↗
             </Text>
           </StyledExternalLink>
+          {isMobile && <Settings />}
           <MoreLinksIcon>
             <MobileOptions history={history} />
           </MoreLinksIcon>
@@ -302,9 +262,6 @@ function Header({ history }: { history: any }) {
       </HeaderRow>
       <HeaderControls>
         <HeaderElement>
-          {chainId && NETWORK_LABELS[chainId] && (
-            <NetworkCard title={NETWORK_LABELS[chainId]}>{NETWORK_LABELS[chainId]}</NetworkCard>
-          )}
           <AccountElement active={!!account} style={{ pointerEvents: 'auto' }}>
             {account && userNativeCurrencyBalance ? (
               <TYPE.white
@@ -322,9 +279,7 @@ function Header({ history }: { history: any }) {
             <Web3Status />
           </AccountElement>
         </HeaderElement>
-        <HeaderElementWrap>
-          <Settings />
-        </HeaderElementWrap>
+        {!isMobile && <Settings />}
       </HeaderControls>
     </HeaderFrame>
   )
